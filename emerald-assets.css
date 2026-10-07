@@ -1,0 +1,71 @@
+/* ============================================================================
+   emerald-assets.css  ·  GENERADO por tools/bake-emerald-assets.js
+   No editar a mano: vuelve a ejecutar el generador.
+
+   Gráficos originales de Pokémon Esmeralda extraídos de pret/pokeemerald.
+   Propiedad de Nintendo / Game Freak / The Pokémon Company.
+   terreno=tall_grass  marco=1  fondo=320x150
+   ========================================================================== */
+:root{
+  /* ---------- imágenes ---------- */
+  --em-bg: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAACWCAYAAACvgFEsAAAEYklEQVR42u3dKXvbQBQFUP3nwsDC0sLCwMJSQ0ND08BAQ1MV+YvjRpVkzWiWd8Ch3nTzpLnRMryN5xEgouHP+88RICIDEDAAAcINQD0AELYDPFxeR4CIDEDAAAQINwD1AEDYDvB4OYwAERmAgAEIEG4A6gGAsB3g6XocASIyAAEDECDcANQDAGE7wPP1PAJEZAACBiBAuAGoBwB0gACWwAAGIIAOEEAHCGAJDGAAAugAAXSAAJbAAAYggA4QQAcIYAkMYAAC6AABdIAAlsAABiCADhBABwhgCQxgAALoAAF0gACWwAAGIIAOENAB2hMAlsAABiCADhBABwhgCQxgAALoAAF0gACWwAAGIIAOEEAHCGAJDGAAAugAAXSAAJbAAAYggA4QQAcIYAkMYAAC6AABdIAAlsAABiCADhDAESBgCQxgAALoAAF0gACWwAAGIIAOEEAHCGAJDGAAAugAAXSAAJbAAAYggA4QQAcIYAkMYAAC6AABdIAAlsAABiCADhBABwhgCQxgAALoAAF0gIAjQD8CYAAC6AABdIAAlsA9eRtPXzpeD7ua+hxCKX/yZwBuDtf9xv59/dakqcAaJPInf2E7wM8BazVcqUP6EVC9jvzJXxcdYI6w/bq8fPLj/XtRj58nRygdncmf/FW+BE4RtqlQvZzbNBVWQ1H+5K+DAXgL3NaQtRqwlAF9Jpy3QEYeevIXO39DiQ5laegew9ZzmG7fOWUw14TyY+/cf4cnf/K3ewe4JHRRwpY7gHOhXBLG3o725E/+iiyB54J3C92eG/u2Z6rp9ff+w1sSxh4GofzJX5EBOBe8JT92rr2SAP773r0NQvmTvyIdYIrg5Q5g7o391eun/i45/oiWBLH2jk/+5K9YB/i/8C3Z4I8/aq6grHndZ4LTagCXBLHmo0H5k79iS+Ct4UsZwJQbO9Vrpf5j2uMooqUhKH/yV2wApghfyh81x7/0ewjg2t+llSEof/JXsAM8JQlfrRu7p9Minl1OTW3fOs4blD/5K9gBrt375j7fqPXQ5O5W7n+XJe9V+1Gg/Mlf0SXw3gHcI8ACaADKnwG4+HrKNQHcunesIYA5P8OeRw9L3mtuCVLD9bzyJ39FzwNcsxfe+gPXsLyoOYBrPtvce83tfVs490/+5G+X8wBT/Scu9wZKcYhfc8eT8rSJaKfByF+8/A0thrB0x1FzAFN8tqgnQstfvPwNNV6DmXOPVCo8ua//TPH9ergmWP7kr4r7AdYSxLUBbPUC+OjXAMuf/FV5P8DStyNau0dq9QJ4t8OSP/mr+Jb4pW5Iufb1argA3g1R5U/+On0mSO23JO/h0qMttyT3HBD5i5S/oZXnM3goTb6H0kR+xq/8xc6fx2J6LCHy57GYHkztwdTInwejBwxlyww7+ZO/ZjvA9J3OY0BbDun9d7j/bnE7O/mTv047wL334I/uN/Yepj6Hoyz5kz9LYAADEEAHCKADBLAEBjAAAXSAADpAgHl/AUtdlk1tGx87AAAAAElFTkSuQmCC");
+  --em-hb-opponent: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAAA4CAYAAAC4yreHAAABW0lEQVR42u3dsW2DQBSAYUbxGi6zAiO4TJsyZVbIKGldZoS0rEIUpNc8CUwOfDmTD+kr3ICE7tedZInXdTeu1/e38Uf/fIHmxXrtal0CQSALQZz7p8np3EGzYp3ePRSBIJCFMHIQ8fvz+jIZvj6gGbEuY53mUASCQGoEEjeMMOLB4zhA82K9xvoVCNQIJB+tgpfOI4kjl0CgZiCOVghEIAhkn0DiQV46AhEIAhEIAhEIAhEICAQEAgIBgYBAQCACQSACQSACQSACAYGAQEAgIBAQCLQRhEBAIPA78Xmq/ClSgYBAoCwUgYBAQCAgEKgRxt3GHwgEgQiEg/9RODeCbfMwT4EgEOMPOKi5o1VWHIpAEMiKQPIWZewzjzD2OY8rnwukOBSBIJAVQzxzKPFgaNHaIDaHIhAEUrCTwH9QvJOAQHa4hIVQBIJAhAJ2EvjLnSQHIxyEIhAOGsg3lN7nL3Dj094AAAAASUVORK5CYII=");
+  --em-hb-player: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAM4AAABICAYAAAC+9soBAAABy0lEQVR42u3csW3CQBSA4Rsla1BmBUZImZaSkhUYJS0lI6SlzBqOsPSKnGSdTWzfGT6krzglJJb8fvkSwCkt/DieT93d/vMDmhfzmmo/hINwHghlt3/vve0SNCvmtFpAwkE4DwSThxLr6+XQu31/QTNiLmNO84CEAy2GE78ogokD6robNC/mNeZXONBiOPkWLTgZbEls3YQDLYdji4ZwhINw6oQTB+BkIBzhIBzhgHBAOCAcEI5wEI5wQDggHBAOCEc4CEc4IBwQDggHhCMchCMcEA5MD0U4IBxYVtzGLL8lrnBAOLBOQMIB4UCdcIYIB+EIB+b954BwQDiwzgugwgHhwDpv8hQOCAeEA8IRDsIRDsIRDggHhAPCEQ7CEQ7CEQ4IB+ZyvRx6woEWwzmeT92dcHimD7YF4UAL4eTB5OHEJc/J4Bm3aMKBNcIZCibkl7o4oPxmCFBTzGXMaQQzdosWHQgH4SwRTimYoYDigKBFY0MRDqwRztRg/isuobn866X10PNhDrNfaYTDS4ezdjCh+0l/lL6v9PzSz8n/WLR+rfXmt2jCsd50OLWCGTv4U9clBkk4m77SCMd6k+HUDgZaEB0s9joNCCelX2Lj7Sulj0m4AAAAAElFTkSuQmCC");
+  --em-hp-label: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAMCAYAAAADFL+5AAAAVUlEQVR42mNggIKrZ/f+B+GgrCi6YoYBdwAui/9vqcaK0eUJqcelf/A4AFfQUMsBONVDweB1wLcpxURhctUPHgfgSoT3cGB0eWLVk5wN6eaAEV8SAgCS6rCWa4PwGQAAAABJRU5ErkJggg==");
+  --em-cursor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAYCAYAAADtaU2/AAAAXUlEQVR42mMoXnKUAYSbFRj+Y8MweWpjhgGzGGbB/yDsmFYOGjiL0YMalwOo7aCBt5hcBxBy0OC3mFoOIOSQwWcxtR2A7pBRiwfe4pGTqkdOyTVyaqfRFsiwb2UCAOlujJzFgzyRAAAAAElFTkSuQmCC");
+  --em-arrow-down: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAN0lEQVR42mNISkr6Tw5moFjjMw4OovCoRmI0Fp9dAsaEDIDJw9RTrhGXAegaqK8R3QBc8mRrBAA7rYn0Eiwa7QAAAABJRU5ErkJggg==");
+  --em-frame3x: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEgAAABICAYAAABV7bNHAAAA9ElEQVR42u3cLQ6DMBiAYa4zyTU4BhLLESaxOwZXmJycnOUqm2u+CRIEP6U8TV5J0u9JcG2r9tVWmg8CoI2AbnX9vVKAAO0ANPdx34+pYXifujjLEixAgDYCattHqu/uRRZnBARoZ6Cm6VKlAsUZAQHKHGh8jqnpMx1S3AMgQAUAxQ3ltpZgAQKUOVD8/3NbcW+AAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIEDXBHL8BRAghzidcgWUP1BJN3/iLIAAZQIU73meEetvz2EWQIAOBJrDKqnV7s0DArQMyOMmXn8BtBuQAAFaox9Vf2YJMIhzygAAAABJRU5ErkJggg==");
+  --em-frame2x: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAuklEQVR42u3asQ2DMBCFYa+TkjUYwyWtR6CkZQyvkDIlJS2rgGTxUiC5iBTwYX5Lr7O4+0R3Z+c/3t05rjrAq2lWy6kXcLwYQkwZhqlo1EcOUh/A+zEldL2pqK/6AW3bpVgDqC8A8R1Tlnn5a/RdADmACpx9chAA+tVnH9UBAAAAAAAAAAAAAAAAAAAArACYSpQGMJm7GmBlzK4+ngfQaqcU5Ft37+M5gCPESn7eUt4OwKbeCoDXKhdnA2egSco39m7KAAAAAElFTkSuQmCC");
+  --em-frame1x: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAjklEQVR42mNIOprEQEsMZ2gaGv6nJkaxACZYXLzmf3f3WYowyAxkS+AWJCVN+V+c1UwVDDILwwIvryyqWQAyi6AFa/au+X/v6j2iMEgtSRaANJAKkC0haAHIVaQCkJ5RC0YtGLVgMFlA86KCZoUdNeoEkBm4fVC8hiJLwHqL12C3AGYJNTBGlUnzSp+WGAAXgdJoiBcvVAAAAABJRU5ErkJggg==");
+
+  /* ---------- tamaños nativos, ya escalados ---------- */
+  --em-bg-w: 320px;
+  --em-bg-h: 150px;
+  --em-hb-opponent-w: 200px;
+  --em-hb-opponent-h: 56px;
+  --em-hb-player-w: 206px;
+  --em-hb-player-h: 72px;
+  --em-hp-label-w: 32px;
+  --em-hp-label-h: 12px;
+  --em-cursor-w: 30px;
+  --em-cursor-h: 24px;
+  --em-arrow-down-w: 14px;
+  --em-arrow-down-h: 14px;
+  --em-frame3x-w: 72px;
+  --em-frame3x-h: 72px;
+  --em-frame2x-w: 48px;
+  --em-frame2x-h: 48px;
+  --em-frame1x-w: 24px;
+  --em-frame1x-h: 24px;
+
+  /* ---------- geometría del fondo (alinea sprites y plataformas) ---------- */
+  --em-bg-ratio: 320 / 150;
+  --em-ground: 16.0%;
+  --em-slot-l: 25%;
+  --em-slot-r: 75%;
+
+  /* ---------- marco de ventana elegido ---------- */
+  --em-frame-inner: #ffffff;
+  --em-frame-edge: #736a83;
+
+  /* ---------- paleta de texto de las ventanas (text_pal1.pal) ---------- */
+  --em-bg-box: #ffffff;
+  --em-ink: #626262;
+  --em-ink-shadow: #d5d5cd;
+  --em-red: #e60808;
+  --em-orange: #ffbd73;
+  --em-green: #209c08;
+
+  /* ---------- barras de HP / EXP (hpbar.png, expbar.png) ---------- */
+  --em-hp-frame: #526a5a;
+  --em-hp-inner: #ffffff;
+  --em-hp-empty-top: #4a415a;
+  --em-hp-empty-bot: #526a5a;
+  --em-hp-green-top: #5ad583;
+  --em-hp-green-bot: #73ffac;
+  --em-hp-yellow-top: #cdac08;
+  --em-hp-yellow-bot: #ffe639;
+  --em-hp-red-top: #ac414a;
+  --em-hp-red-bot: #ff5a39;
+  --em-exp-fill: #41cdff;
+}
