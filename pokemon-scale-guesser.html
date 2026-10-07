@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pokémon Scale Guesser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<!-- Assets originales de Pokémon Esmeralda (pret/pokeemerald), embebidos como
+     data URIs. Generado por tools/bake-emerald-assets.js -->
+<link rel="stylesheet" href="emerald-assets.css">
+<!-- Tabla de alturas de las 1025 especies. Generada por tools/bake-dex.js;
+     si falta, el juego sigue funcionando probando Pokémon al azar. -->
+<script src="dex-heights.js"></script>
+<style>
+/* ============================================================================
+   Toda la interfaz sale de la paleta y los gráficos del juego:
+   los colores vienen de emerald-assets.css (text_pal1.pal, hpbar.png, y el
+   marco de ventana elegido), y los recuadros son el marco original recortado
+   en 9 con border-image.
+   ========================================================================== */
+:root{
+  /* fondo de la página, derivado del borde del marco para que combine con
+     cualquier marco que elijas al rehornear */
+  --page:#221f2a;
+}
+@supports (background:color-mix(in srgb,red,blue)){
+  :root{ --page:color-mix(in srgb, var(--em-frame-edge) 32%, #06060a); }
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page);
+  background-image:
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(0deg,  rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size:8px 8px;
+  color:var(--em-ink);
+  font-family:'VT323','Courier New',monospace;
+  font-size:20px;
+  line-height:1.15;
+  -webkit-font-smoothing:none;
+  padding:12px;
+}
+h1,h2,.pix,.btn,.tick,.pl-name,.pl-alt,.tag,.q-tag,.chip{
+  font-family:'Press Start 2P','VT323',monospace;
+  -webkit-font-smoothing:none;
+}
+/* cualquier gráfico del juego se escala sin interpolar */
+.px{image-rendering:pixelated;image-rendering:crisp-edges}
+
+/* texto con la sombra de la fuente original */
+.ink{color:var(--em-ink);text-shadow:1px 1px 0 var(--em-ink-shadow)}
+
+/* ============================================================================
+   VENTANA GBA — el recuadro base de toda la página
+   El marco es 24x24 (3x3 tiles de 8). frame2x/3x están pre-escalados con
+   vecino más cercano, así que el corte coincide 1:1 con el border-width y no
+   hay reescalado fraccionario.
+   ========================================================================== */
+.win{
+  border:16px solid transparent;
+  border-image:var(--em-frame2x) 16 fill repeat;
+  background:var(--em-bg-box);
+  color:var(--em-ink);
+}
+.win-lg{
+  border:24px solid transparent;
+  border-image:var(--em-frame3x) 24 fill repeat;
+  background:var(--em-bg-box);
+}
+.win-sm{
+  border:8px solid transparent;
+  border-image:var(--em-frame1x) 8 fill repeat;
+  background:var(--em-bg-box);
+}
+
+/* ============================================================================
+   CABECERA
+   ========================================================================== */
+.console{max-width:1300px;margin:0 auto}
+.titlebar{padding:4px 8px 8px;margin-bottom:12px;text-align:center}
+.titlebar h1{margin:0;font-size:17px;letter-spacing:1px;color:var(--em-ink);text-shadow:2px 2px 0 var(--em-ink-shadow)}
+.titlebar .sub{font-size:19px;margin-top:8px;color:var(--em-ink);opacity:.8}
+
+/* ============================================================================
+   REJILLA DE 2 COLUMNAS
+
+   Antes eran tres columnas con siete ventanas sueltas: cada una gastaba un
+   borde de 16px para cuatro filas de texto, y las dos columnas laterales
+   acababan en huecos muertos. Ahora la columna principal se queda con el juego
+   (arena + mandos + diálogo) y TODO lo secundario vive en una sola ventana
+   lateral con secciones internas, como las pantallas de resumen del juego.
+   `stretch` hace que esa ventana llegue hasta abajo, y la sección marcada con
+   .grow absorbe el sobrante en lugar de dejar hueco.
+   ========================================================================== */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;align-items:stretch}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+
+/* ============================================================================
+   PANELES Y SECCIONES
+   ========================================================================== */
+.panel{padding:2px 4px 6px}
+.panel > h2{
+  margin:2px 0 9px;font-size:10px;text-align:center;
+  color:var(--em-ink);text-shadow:1px 1px 0 var(--em-ink-shadow);
+  padding-bottom:7px;border-bottom:2px solid var(--em-frame-edge);
+}
+.row{display:flex;justify-content:space-between;gap:8px;padding:2px 0}
+.row .k{opacity:.72}
+.row .v{text-align:right}
+.row .v.big{color:var(--em-green)}
+.row .v.bad{color:var(--em-red)}
+.hr{height:2px;background:var(--em-frame-edge);opacity:.55;margin:8px 0}
+.muted{opacity:.6}
+.center{text-align:center}
+
+.chip{
+  display:inline-block;font-size:7px;padding:4px 5px;white-space:nowrap;
+  color:var(--em-bg-box);background:var(--em-ink);
+}
+.chip.ok{background:var(--em-green)}
+.chip.no{background:var(--em-red)}
+
+/* --- barra lateral: una sola ventana, secciones separadas por reglas --- */
+.side{display:flex;flex-direction:column;padding:2px 4px 8px}
+.side-head{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding-bottom:9px;border-bottom:2px solid var(--em-frame-edge);
+}
+.side-head .rno{
+  font-family:'Press Start 2P',monospace;font-size:11px;
+  color:var(--em-ink);text-shadow:1px 1px 0 var(--em-ink-shadow);
+}
+.sec{padding-top:10px}
+.sec + .sec{margin-top:10px;border-top:2px solid var(--em-frame-edge)}
+.sec > h3{
+  font-family:'Press Start 2P',monospace;margin:0 0 9px;font-size:9px;
+  color:var(--em-ink);text-shadow:1px 1px 0 var(--em-ink-shadow);
+}
+/* absorbe el espacio sobrante para que la ventana no acabe en hueco */
+.sec.grow{flex:1 1 auto;min-height:0}
+
+/* ============================================================================
+   BARRA DE HP AUTÉNTICA
+   Estructura de graphics/battle_interface/hpbar.png: 6 px de alto -> borde,
+   blanco, 2 px de relleno en dos tonos, blanco, borde. Escalada x2, igual que
+   los healthboxes. Los anillos son box-shadow, así que no ocupan layout.
+   ========================================================================== */
+.hpbar{
+  position:relative;height:4px;margin:4px 0;overflow:hidden;
+  background:linear-gradient(to bottom,var(--em-hp-empty-top) 0 50%,var(--em-hp-empty-bot) 50% 100%);
+  box-shadow:0 0 0 2px var(--em-hp-inner),0 0 0 4px var(--em-hp-frame);
+}
+.hpbar > i{
+  position:absolute;left:0;top:0;bottom:0;width:0%;
+  background:linear-gradient(to bottom,var(--em-hp-green-top) 0 50%,var(--em-hp-green-bot) 50% 100%);
+  transition:width .25s steps(8);
+}
+.hpbar.warn > i{background:linear-gradient(to bottom,var(--em-hp-yellow-top) 0 50%,var(--em-hp-yellow-bot) 50% 100%)}
+.hpbar.bad  > i{background:linear-gradient(to bottom,var(--em-hp-red-top) 0 50%,var(--em-hp-red-bot) 50% 100%)}
+.hp-lab{
+  display:inline-block;flex:none;
+  width:var(--em-hp-label-w);height:var(--em-hp-label-h);
+  background:var(--em-hp-label) no-repeat;background-size:100% 100%;
+}
+
+/* ============================================================================
+   PANEL "SIGUIENTES" — la cola de Pokémon
+   ========================================================================== */
+.queue{display:flex;flex-direction:column;gap:7px}
+.q-it{display:grid;grid-template-columns:52px minmax(0,1fr);gap:8px;align-items:center;opacity:.62}
+.q-it.next{opacity:1}
+.q-thumb{
+  height:52px;display:flex;align-items:center;justify-content:center;
+  border:8px solid transparent;border-image:var(--em-frame1x) 8 fill repeat;
+  background:var(--em-bg-box);
+}
+.q-thumb img{max-height:34px;max-width:34px;width:auto}
+.q-info{display:flex;flex-direction:column;gap:3px;min-width:0}
+.q-name{font-size:19px;text-transform:capitalize;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q-tag{font-size:7px;color:var(--em-bg-box);background:var(--em-ink);padding:3px 4px;align-self:flex-start}
+.q-it.next .q-tag{background:var(--em-red)}
+.q-pos{font-size:17px;opacity:.6}
+
+/* ============================================================================
+   ARENA — fondo de combate original de Esmeralda
+   El PNG lleva las dos plataformas compuestas sobre la misma línea de suelo;
+   --em-ground / --em-slot-* vienen del generador, así que los sprites caen
+   encima de ellas sin números mágicos aquí.
+   ========================================================================== */
+.arena{
+  position:relative;
+  aspect-ratio:var(--em-bg-ratio);
+  overflow:hidden;
+  background:var(--em-bg) center/100% 100% no-repeat #d5f6d5;
+  image-rendering:pixelated;
+  border:16px solid transparent;
+  border-image:var(--em-frame2x) 16 repeat;   /* sin `fill`: el fondo se ve */
+}
+
+/* Contenedor de los sprites. NO se le aplica scale() para el retroceso de
+   cámara: al escalar el contenedor, los huecos se desplazan hacia el origen y
+   los Pokémon se salen de sus plataformas (que van pintadas en el fondo y no
+   se mueven). El zoom se aplica a la altura de cada sprite, así que cada uno
+   se queda siempre centrado sobre su plataforma. */
+.stage{position:absolute;inset:0;z-index:2}
+
+.slot{position:absolute;bottom:var(--em-ground);transform:translateX(-50%);display:flex;align-items:flex-end}
+.slot.l{left:var(--em-slot-l);z-index:3}
+.slot.r{left:var(--em-slot-r);z-index:2}
+.slot.out{left:var(--em-slot-l);z-index:1;opacity:0}
+.slot img{display:block;width:auto;transform-origin:bottom center;filter:drop-shadow(0 2px 0 rgba(0,0,0,.22))}
+/* corto, para que el slider siga respondiendo al instante; los dos sprites lo
+   llevan porque el retroceso de cámara cambia también el de la referencia */
+.slot img{transition:height .12s linear}
+
+/* --- transición de cinta: el Pokémon escalado pasa a la izquierda ---
+   Se anima `transform`, no `left` ni `height`: esas dos obligan a recalcular
+   el layout en cada fotograma y la animación se queda sin frames en cuanto la
+   página tiene carga. El desplazamiento se añade como un segundo translateX
+   para que la lista de funciones coincida entre los dos estados y el
+   navegador interpole función a función. */
+.stage.anim .slot{transition:transform .5s ease-in-out,opacity .5s ease-in-out}
+.stage.anim .slot img{transition:transform .5s ease-in-out}
+
+/* --- healthboxes originales --- */
+.plate{
+  position:absolute;top:9px;z-index:4;
+  background-repeat:no-repeat;background-size:100% 100%;
+  transition:opacity .25s;
+}
+.plate.l{left:9px;width:var(--em-hb-opponent-w);height:var(--em-hb-opponent-h);background-image:var(--em-hb-opponent)}
+.plate.r{right:9px;width:var(--em-hb-player-w);height:var(--em-hb-player-h);background-image:var(--em-hb-player)}
+/* zona útil dentro del recuadro crema de cada healthbox */
+.plate-in{position:absolute;display:flex;flex-direction:column;justify-content:space-between}
+.plate.l .plate-in{left:5%;right:13%;top:14%;bottom:20%}
+.plate.r .plate-in{left:14%;right:5%;top:11%;bottom:31%}
+.pl-top{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.pl-name{font-size:8px;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-alt{font-size:8px;flex:none}
+.pl-name,.pl-alt{color:var(--em-ink);text-shadow:1px 1px 0 var(--em-ink-shadow)}
+.pl-hp{display:flex;align-items:center;gap:5px}
+.pl-hp .hpbar{flex:1}
+
+/* --- superposiciones sobre el campo --- */
+.marker{position:absolute;z-index:5;right:0;width:56%;border-top:3px dashed var(--em-red);display:none}
+.marker.on{display:block}
+/* La etiqueta va en el extremo IZQUIERDO de la línea, no en el derecho: el
+   derecho cae justo sobre el healthbox del Pokémon a escalar y le tapaba la
+   altura. El extremo izquierdo queda a media arena, sobre campo abierto, así
+   que no choca con ninguno de los dos healthboxes a ninguna altura. */
+.marker span{
+  position:absolute;left:4px;top:-26px;font-size:8px;white-space:nowrap;
+  font-family:'Press Start 2P',monospace;color:var(--em-ink);
+  border:8px solid transparent;border-image:var(--em-frame1x) 8 fill repeat;
+  background:var(--em-bg-box);padding:0 2px;
+}
+/* si la línea queda pegada al borde superior, la etiqueta cuelga por debajo */
+.marker.below span{top:4px}
+.guides{position:absolute;inset:0;z-index:1;display:none;pointer-events:none}
+.guides.on{display:block}
+.guides i{position:absolute;left:0;right:0;border-top:1px dashed rgba(60,90,50,.45)}
+/* abajo a la izquierda: en el centro flotaba sin relación con nada, y ahí
+   estorbaba a la línea de la marca */
+.camtag{
+  position:absolute;bottom:8px;left:9px;z-index:6;display:none;
+  font-family:'Press Start 2P',monospace;font-size:8px;color:var(--em-ink);
+  border:8px solid transparent;border-image:var(--em-frame1x) 8 fill repeat;
+  background:var(--em-bg-box);padding:0 2px;white-space:nowrap;
+}
+.camtag.on{display:block}
+.veil{
+  position:absolute;inset:0;z-index:9;display:none;
+  align-items:center;justify-content:center;
+  background:rgba(20,18,26,.72);
+}
+.veil.on{display:flex}
+.veil > span{
+  font-family:'Press Start 2P',monospace;font-size:11px;letter-spacing:1px;
+  color:var(--em-ink);text-align:center;max-width:70%;
+  border:16px solid transparent;border-image:var(--em-frame2x) 16 fill repeat;
+  background:var(--em-bg-box);padding:6px 8px;
+}
+
+/* ============================================================================
+   CUADRO DE DIÁLOGO
+   ========================================================================== */
+.dialog{
+  font-size:21px;min-height:78px;
+  display:flex;align-items:center;gap:9px;padding:2px 4px;
+}
+.dialog .cursor{
+  flex:none;display:block;
+  width:var(--em-cursor-w);height:var(--em-cursor-h);
+  background:var(--em-cursor) no-repeat;background-size:100% 100%;
+}
+.dialog .msg{flex:1}
+.dialog b{color:var(--em-ink);background:var(--em-orange);padding:0 3px}
+.dialog b.ok{color:var(--em-bg-box);background:var(--em-green)}
+.dialog b.no{color:var(--em-bg-box);background:var(--em-red)}
+/* flecha de "continuar" original, parpadeando como en el juego */
+.dialog .go-on{
+  flex:none;display:none;align-self:flex-end;margin-bottom:4px;
+  width:var(--em-arrow-down-w);height:var(--em-arrow-down-h);
+  background:var(--em-arrow-down) no-repeat;background-size:100% 100%;
+  animation:blink 1s steps(1) infinite;
+}
+.dialog.ready .go-on{display:block}
+@keyframes blink{0%,50%{opacity:1}50.01%,100%{opacity:0}}
+
+/* ============================================================================
+   CONTROLES
+   ========================================================================== */
+.ctrl-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+.ctrl-head .lab{font-family:'Press Start 2P',monospace;font-size:9px;opacity:.75}
+.ctrl-head .val{font-family:'Press Start 2P',monospace;font-size:15px;color:var(--em-ink);text-shadow:1px 1px 0 var(--em-ink-shadow)}
+
+/* el slider como una barra del GBA */
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:26px;background:transparent;margin:0;cursor:ew-resize}
+input[type=range]::-webkit-slider-runnable-track{
+  height:12px;border:2px solid var(--em-hp-frame);
+  background:linear-gradient(to bottom,var(--em-hp-empty-top) 0 50%,var(--em-hp-empty-bot) 50% 100%);
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:16px;height:26px;margin-top:-9px;
+  background:var(--em-hp-green-bot);border:3px solid var(--em-hp-frame);
+}
+input[type=range]::-moz-range-track{
+  height:12px;border:2px solid var(--em-hp-frame);
+  background:linear-gradient(to bottom,var(--em-hp-empty-top) 0 50%,var(--em-hp-empty-bot) 50% 100%);
+}
+input[type=range]::-moz-range-thumb{width:12px;height:22px;border-radius:0;background:var(--em-hp-green-bot);border:3px solid var(--em-hp-frame)}
+input[type=range]:disabled::-webkit-slider-thumb{background:var(--em-ink-shadow);border-color:var(--em-ink)}
+input[type=range]:disabled::-moz-range-thumb{background:var(--em-ink-shadow);border-color:var(--em-ink)}
+
+.ticks{position:relative;height:24px;margin-top:2px}
+.ticks .tick{position:absolute;transform:translateX(-50%);font-size:7px;opacity:.7;text-align:center}
+/* las de los extremos están en 0% y 100%: centradas se saldrían de la caja */
+.ticks .tick:first-child{transform:translateX(0)}
+.ticks .tick:last-child{transform:translateX(-100%)}
+.ticks .tick i{display:block;width:2px;height:5px;background:var(--em-frame-edge);margin:0 auto 4px}
+
+/* botones: el mismo marco, en pequeño */
+.btns{display:flex;gap:10px;margin-top:12px}
+.btn{
+  flex:1;font-size:10px;letter-spacing:.5px;cursor:pointer;
+  color:var(--em-ink);text-shadow:1px 1px 0 var(--em-ink-shadow);
+  background:var(--em-bg-box);
+  border:16px solid transparent;
+  border-image:var(--em-frame2x) 16 fill repeat;
+  padding:4px 2px;min-height:54px;
+}
+.btn:hover:not(:disabled) .lbl{color:var(--em-red)}
+.btn:active:not(:disabled){transform:translateY(2px)}
+.btn:disabled{cursor:not-allowed;opacity:.42}
+/* el corte del marco es de 16 px: no se cambia el border-width, o el
+   border-image se reescalaría con factor no entero y perdería nitidez */
+.btn.sm{font-size:8px;min-height:50px}
+
+/* fila inferior de la tira de mandos: recoge lo que estaba en el panel
+   "Controls", que se ha eliminado. Botón secundario con borde plano de 2px en
+   vez de un tercer marco de 16px, para no competir con CONFIRM / NEXT. */
+.ctrl-foot{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  margin-top:12px;padding-top:10px;border-top:2px solid var(--em-frame-edge);
+}
+.ctrl-foot .switch-row{padding:0;gap:8px;flex:none}
+.cf-lab{font-size:17px;opacity:.72}
+.cf-hint{font-size:17px;opacity:.58;flex:1;text-align:center;min-width:150px}
+.btn-lite{
+  font-family:'Press Start 2P',monospace;font-size:8px;cursor:pointer;flex:none;
+  color:var(--em-ink);background:var(--em-bg-box);
+  border:2px solid var(--em-frame-edge);padding:8px 10px;
+}
+.btn-lite:hover{color:var(--em-red)}
+.btn-lite:active{transform:translateY(1px)}
+
+/* interruptor con los colores del juego */
+.switch-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 0}
+.switch{
+  width:54px;height:26px;flex:none;
+  border:3px solid var(--em-hp-frame);background:var(--em-hp-empty-top);
+  display:flex;align-items:center;justify-content:flex-start;padding:2px;cursor:pointer;
+}
+.switch i{display:block;width:20px;height:16px;background:var(--em-ink-shadow)}
+.switch.on{background:var(--em-hp-green-bot)}
+.switch.on{justify-content:flex-end}
+.switch.on i{background:var(--em-hp-frame)}
+.switch-state{font-family:'Press Start 2P',monospace;font-size:8px;opacity:.7}
+.switch-state.on{color:var(--em-green);opacity:1}
+
+/* historial */
+.hist{display:flex;flex-direction:column;gap:10px}
+.hist .it .t{display:flex;justify-content:space-between;gap:8px;font-size:17px}
+.hist .it .t span:first-child{opacity:.72;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-transform:capitalize}
+.hist .it .t span:last-child{flex:none}
+
+/* ============================================================================
+   PIE LEGAL
+   ========================================================================== */
+/* El aviso que hace el trabajo de marca queda siempre a la vista; el detalle
+   largo va en un <details> para que no sea un bloque de texto pequeño enorme. */
+.legal{margin-top:12px;padding:4px 6px 6px;font-size:19px;line-height:1.3}
+.legal-lead{
+  font-size:20px;color:var(--em-red);text-align:center;
+  margin:0 auto;max-width:70ch;
+}
+.legal-more{margin-top:8px;border-top:2px solid var(--em-frame-edge);padding-top:7px}
+.legal-more > summary{
+  font-family:'Press Start 2P',monospace;font-size:8px;cursor:pointer;
+  color:var(--em-ink);text-align:center;list-style:none;padding:3px 0;
+}
+.legal-more > summary::-webkit-details-marker{display:none}
+.legal-more > summary::before{content:'▶ ';font-size:7px}
+.legal-more[open] > summary::before{content:'▼ '}
+.legal-more > summary:hover{color:var(--em-red)}
+.legal-body{max-width:80ch;margin:9px auto 0}
+.legal-body p{margin:0 0 9px}
+.legal-body b{color:var(--em-ink)}
+.legal a{color:var(--em-ink);text-decoration:underline}
+.legal a:hover{color:var(--em-red)}
+.legal .mono{font-family:'Courier New',monospace;font-size:16px;background:#efefe8;padding:0 3px}
+
+/* ============================================================================
+   RESPONSIVE
+   ========================================================================== */
+@media (max-width:1040px){
+  .layout{grid-template-columns:minmax(0,1fr)}
+  .plate{transform:scale(.7);transform-origin:top left}
+  .plate.r{transform-origin:top right}
+  .cf-hint{display:none}
+}
+</style>
+</head>
+<body>
+<div class="console">
+
+  <header class="titlebar win">
+    <h1>Pokémon Scale Guesser</h1>
+    <div class="sub">Guess the relative height · 1025 Pokémon from PokéAPI · Pokémon Emerald interface</div>
+  </header>
+
+  <div class="layout">
+
+    <!-- ================= COLUMNA PRINCIPAL: EL JUEGO ================= -->
+    <main class="col col-mid">
+
+      <div class="arena" id="arena">
+        <div class="guides" id="guides">
+          <i style="top:12%"></i><i style="top:28%"></i><i style="top:44%"></i><i style="top:60%"></i>
+        </div>
+
+        <div class="stage" id="stage">
+          <!-- el Pokémon que sale del campo, solo durante la transición -->
+          <div class="slot out" id="slotOut"><img class="px" id="spriteOut" alt=""></div>
+          <div class="slot l" id="slotRef"><img class="px" id="spriteRef" alt=""></div>
+          <div class="slot r" id="slotGss"><img class="px" id="spriteGss" alt=""></div>
+        </div>
+
+        <div class="marker" id="marker"><span id="markerLab">REAL</span></div>
+        <div class="camtag" id="camtag">CAMERA x1.00</div>
+
+        <!-- healthbox del rival: Pokémon de referencia -->
+        <div class="plate l px" id="plateL">
+          <div class="plate-in">
+            <div class="pl-top"><span class="pl-name" id="nameRef">------</span><span class="pl-alt" id="hRef">???</span></div>
+            <div class="pl-hp"><i class="hp-lab px"></i><span class="hpbar" id="barPlateRefWrap"><i id="plateBarRef"></i></span></div>
+          </div>
+        </div>
+
+        <!-- healthbox del jugador: Pokémon a escalar -->
+        <div class="plate r px" id="plateR">
+          <div class="plate-in">
+            <div class="pl-top"><span class="pl-name" id="nameGss">------</span><span class="pl-alt" id="hGss">???</span></div>
+            <div class="pl-hp"><i class="hp-lab px"></i><span class="hpbar" id="barPlateGssWrap"><i id="plateBarGss"></i></span></div>
+          </div>
+        </div>
+
+        <div class="veil on" id="veil"><span id="veilMsg">LOADING...</span></div>
+      </div>
+
+      <section class="panel win">
+        <div class="ctrl-head">
+          <span class="lab">VISUAL SCALE</span>
+          <span class="val" id="scaleOut">1.00x</span>
+        </div>
+        <input type="range" id="slider" min="0" max="1000" step="1" value="500" aria-label="Visual scale">
+        <div class="ticks" id="ticks"></div>
+        <div class="btns">
+          <button class="btn" id="btnConfirm"><span class="lbl">CONFIRM SCALE</span></button>
+          <button class="btn" id="btnNext" disabled><span class="lbl">NEXT POKÉMON</span></button>
+        </div>
+
+        <div class="ctrl-foot">
+          <div class="switch-row">
+            <span class="cf-lab">Guides</span>
+            <span class="switch-state" id="guideState">OFF</span>
+            <div class="switch" id="guideSwitch" role="switch" aria-checked="false" tabindex="0"><i></i></div>
+          </div>
+          <span class="cf-hint">← → adjust · ENTER confirms</span>
+          <button class="btn-lite" id="btnReset">RESET GAME</button>
+        </div>
+      </section>
+
+      <div class="dialog win-lg" id="dialog">
+        <i class="cursor px"></i>
+        <span class="msg" id="msg">Loading Pokémon...</span>
+        <i class="go-on px"></i>
+      </div>
+
+    </main>
+
+    <!-- ============ BARRA LATERAL: UNA SOLA VENTANA CON SECCIONES ============
+         Sustituye a los cuatro paneles sueltos de antes. "Current Round" pasa a
+         ser la cabecera, y su fila "Your scale" desaparece porque ya está en
+         grande sobre el slider. -->
+    <aside class="side win">
+
+      <div class="side-head">
+        <span class="rno">ROUND <span id="roundNo">1</span></span>
+        <span class="chip" id="roundState">ADJUSTING</span>
+      </div>
+
+      <section class="sec">
+        <h3>Result</h3>
+        <div id="resultBox">
+          <div class="muted center" style="padding:6px 0">Confirm your scale to reveal the real heights.</div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h3>Stats</h3>
+        <div class="row"><span class="k">Rounds</span><span class="v" id="stRounds">0</span></div>
+        <div class="row"><span class="k">Hits</span><span class="v" id="stHits">0</span></div>
+        <div class="row"><span class="k">Streak</span><span class="v" id="stStreak">0</span></div>
+        <div class="row"><span class="k">Avg. accuracy</span><span class="v" id="stAvg">--</span></div>
+        <div class="row"><span class="k">Best round</span><span class="v" id="stBest">--</span></div>
+        <div class="row"><span class="k">Points</span><span class="v big" id="stPoints">0</span></div>
+      </section>
+
+      <section class="sec">
+        <h3>Up Next</h3>
+        <div class="queue" id="queue"><div class="muted center">Loading...</div></div>
+      </section>
+
+      <section class="sec grow">
+        <h3>History</h3>
+        <div class="hist" id="hist"><div class="muted center">No rounds yet.</div></div>
+      </section>
+
+    </aside>
+  </div>
+
+  <!-- ======================================================================
+       AVISO LEGAL / ATRIBUCIÓN
+       Un aviso no convierte en lícito el uso de material con copyright: lo
+       que hace es dejar claro que esto no es un producto oficial y que no hay
+       intención de hacerlo pasar por tal, que es el riesgo de marca.
+       ====================================================================== -->
+  <footer class="legal win">
+    <p class="legal-lead">Unofficial fan project. Not affiliated with, endorsed or sponsored by
+    Nintendo, Creatures Inc. or GAME FREAK Inc.</p>
+
+    <details class="legal-more">
+      <summary>Legal &amp; credits</summary>
+      <div class="legal-body">
+    <p>Pokémon and all related names, characters, sprites and interface graphics are trademarks
+    and copyrighted works of Nintendo, Creatures Inc. and GAME FREAK Inc. This is a
+    non-commercial project made for learning, with no infringement intended; all rights remain
+    with their respective owners. It is not sold, monetised or distributed commercially, and it
+    will be taken down on request from any rightsholder.</p>
+
+    <p><b>Credits.</b> Species data (names and official heights) and Pokémon sprites come from
+    <a href="https://pokeapi.co" target="_blank" rel="noopener noreferrer">PokéAPI</a> and its
+    sprite repository. The interface graphics — window frames, healthboxes, HP bars and the
+    battle background — were extracted from
+    <a href="https://github.com/pret/pokeemerald" target="_blank" rel="noopener noreferrer">pret/pokeemerald</a>,
+    a decompilation research project; the graphics themselves belong to the rightsholders above.
+    The <i>Press Start 2P</i> and <i>VT323</i> fonts are licensed under the SIL Open Font License.</p>
+
+    <p><b>Data and third parties.</b> There are no accounts, no cookies, no analytics and no
+    server of our own — nothing you do here is stored or sent anywhere. The page does load
+    resources from three third parties, which means your browser reveals your IP address to
+    them: <span class="mono">pokeapi.co</span> (species data),
+    <span class="mono">raw.githubusercontent.com</span> (sprites) and
+    <span class="mono">fonts.googleapis.com</span> / <span class="mono">fonts.gstatic.com</span>
+    (the pixel fonts).</p>
+      </div>
+    </details>
+  </footer>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   CONFIGURACIÓN
+   ============================================================ */
+var DEX_MIN   = 1;
+var DEX_MAX   = 1025;  // las 9 generaciones completas (Gen 9 acaba en 1025)
+
+/* Estilo de sprite:
+     'bw'      -> sprites estilo Blanco/Negro para los 1025. Es el único set con
+                  pixel art para TODAS las generaciones, así que es el que
+                  mantiene un estilo único de la Gen 1 a la Gen 9.
+     'emerald' -> sprites originales de Esmeralda. Solo existen para los ids
+                  1-386 (Gen 1-3); pon DEX_MAX = 386 si eliges este. */
+var SPRITE_STYLE = 'bw';
+
+/* Altura en pantalla del Pokémon de referencia, como FRACCIÓN del alto de la
+   arena. Con un valor fijo en píxeles los sprites quedaban diminutos en una
+   arena grande y enormes en una pequeña; así el encuadre es el mismo a
+   cualquier tamaño y el redimensionado de ventana se ajusta solo. 0.27 deja
+   unas 3.2x de margen antes de que la cámara tenga que retroceder. */
+var BASE_FRAC = 0.27;
+var MIN_SCALE = 0.1;
+var MAX_SCALE = 10;
+var RATIO_MIN = 0.13;  // descarta parejas imposibles de acertar con el slider
+var RATIO_MAX = 7.5;
+var HIT_PCT   = 70;    // precisión mínima para contar como acierto
+var MARK_ROOM = 36;    // alto que hay que reservar para la etiqueta de la marca
+var QUEUE_MIN = 4;     // Pokémon precargados en la cola
+var ANIM_MS   = 500;   // debe coincidir con la transición de .stage.anim
+
+var LOG_SPAN = Math.log(MAX_SCALE / MIN_SCALE);
+function tToScale(t){ return MIN_SCALE * Math.exp(LOG_SPAN * (t / 1000)); }
+function scaleToT(s){ return 1000 * Math.log(s / MIN_SCALE) / LOG_SPAN; }
+
+/* ============================================================
+   ESTADO
+
+   El juego es una cadena: cada ronda, el Pokémon que acabas de escalar pasa a
+   la izquierda y se convierte en la referencia de la siguiente. Por eso su
+   altura ya es conocida (la reveló la ronda anterior) y se muestra siempre.
+   ============================================================ */
+var S = {
+  ref:null,          // referencia, a tamaño base fijo (altura conocida)
+  gss:null,          // el que hay que escalar (altura oculta)
+  queue:[],          // siguientes, ya precargados
+  round:1, revealed:false, busy:false,
+  rounds:0, hits:0, streak:0, points:0, best:0,
+  history:[]
+};
+
+function $(id){ return document.getElementById(id); }
+function cssVar(name){
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+/* La línea de suelo la define el fondo generado (--em-ground), no un número
+   fijo: si se rehornea el fondo con otra geometría, esto sigue cuadrando. */
+function groundFrac(){
+  var n = parseFloat(cssVar('--em-ground'));
+  return isNaN(n) ? 16 : n / 100;
+}
+function groundPx(){ return $('arena').clientHeight * groundFrac(); }
+function basePx(){ return Math.max(36, $('arena').clientHeight * BASE_FRAC); }
+/* posición de cada plataforma como fracción del ancho de la arena */
+var SLOT_L_N = (parseFloat(cssVar('--em-slot-l')) || 25) / 100;
+var SLOT_R_N = (parseFloat(cssVar('--em-slot-r')) || 75) / 100;
+
+/* ============================================================
+   POKÉAPI
+   ============================================================ */
+var cache = {};
+
+function pickSprite(sp){
+  var v  = sp.versions || {};
+  var g3 = v['generation-iii'] || {};
+  var g5 = v['generation-v'] || {};
+  var bw = (g5['black-white'] && g5['black-white'].front_default) || null;
+
+  if (SPRITE_STYLE === 'emerald'){
+    return (g3.emerald && g3.emerald.front_default)
+        || (g3['firered-leafgreen'] && g3['firered-leafgreen'].front_default)
+        || (g3['ruby-sapphire'] && g3['ruby-sapphire'].front_default)
+        || bw || sp.front_default;
+  }
+  /* `front_default` es el render moderno, no pixel art: solo como último
+     recurso si algún día faltara el sprite de Blanco/Negro. */
+  return bw || sp.front_default;
+}
+
+function getPokemon(id){
+  if (cache[id]) return Promise.resolve(cache[id]);
+  return fetch('https://pokeapi.co/api/v2/pokemon/' + id)
+    .then(function(r){
+      if (!r.ok) throw new Error('PokeAPI ' + r.status);
+      return r.json();
+    })
+    .then(function(d){
+      var p = { id:d.id, name:d.name, heightM:d.height / 10, url:pickSprite(d.sprites) };
+      return trimSprite(p.url).then(function(t){
+        p.sprite = t;
+        cache[id] = p;
+        return p;
+      });
+    });
+}
+
+/* Recorta el margen transparente del sprite. Sin esto la comparación de
+   alturas sería falsa: cada sprite tiene un relleno distinto dentro del PNG. */
+function loadImage(url){
+  return new Promise(function(res, rej){
+    var i = new Image();
+    i.crossOrigin = 'anonymous';
+    i.onload = function(){ res(i); };
+    i.onerror = function(){ rej(new Error('sprite')); };
+    i.src = url;
+  });
+}
+
+function trimSprite(url){
+  if (!url) return Promise.resolve({ src:'', w:0, h:0 });
+  return loadImage(url).then(function(img){
+    var w = img.naturalWidth, h = img.naturalHeight;
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    var ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 0, 0);
+    var data = ctx.getImageData(0, 0, w, h).data;
+    var minX = w, minY = h, maxX = -1, maxY = -1, x, y;
+    for (y = 0; y < h; y++){
+      for (x = 0; x < w; x++){
+        if (data[(y * w + x) * 4 + 3] > 16){
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < 0) return { src:url, w:w, h:h };
+    var tw = maxX - minX + 1, th = maxY - minY + 1;
+    var o = document.createElement('canvas');
+    o.width = tw; o.height = th;
+    var octx = o.getContext('2d');
+    octx.imageSmoothingEnabled = false;
+    octx.drawImage(c, minX, minY, tw, th, 0, 0, tw, th);
+    return { src:o.toDataURL(), w:tw, h:th };
+  }).catch(function(){
+    return { src:url, w:0, h:0 };   // sin recorte (p. ej. lectura de canvas bloqueada)
+  });
+}
+
+/* ============================================================
+   COLA
+
+   Cada Pokémon nuevo tiene que ser adivinable respecto al que le precede en la
+   cadena, así que la compatibilidad se comprueba contra la cola del final, no
+   contra la referencia actual.
+   ============================================================ */
+function randId(){ return DEX_MIN + Math.floor(Math.random() * (DEX_MAX - DEX_MIN + 1)); }
+
+function compatible(a, b){
+  var r = b.heightM / a.heightM;
+  return r >= RATIO_MIN && r <= RATIO_MAX;
+}
+
+/* Tabla de alturas precargada (dex-heights.js). Permite elegir un candidato
+   compatible de una vez, en lugar de pedir Pokémon al azar y descartar. Con los
+   1025 eso importa: con Eternatus (20 m) como referencia solo 56 de 1024 valen,
+   y probar al azar deja rondas imposibles de acertar. */
+var HEIGHTS = (typeof window !== 'undefined' && window.DEX_HEIGHTS) || null;
+
+function pickCompatibleId(tailHeightM, used){
+  if (!HEIGHTS) return null;
+  var top = Math.min(DEX_MAX, HEIGHTS.length), pool = [], id, h, r;
+  for (id = DEX_MIN; id <= top; id++){
+    if (used[id]) continue;
+    h = HEIGHTS[id - 1] / 10;
+    if (!h) continue;
+    if (!tailHeightM){ pool.push(id); continue; }
+    r = h / tailHeightM;
+    if (r >= RATIO_MIN && r <= RATIO_MAX) pool.push(id);
+  }
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+}
+
+function enqueueOne(){
+  var tail = S.queue.length ? S.queue[S.queue.length - 1] : (S.gss || S.ref);
+  var used = {};
+  if (S.ref) used[S.ref.id] = 1;
+  if (S.gss) used[S.gss.id] = 1;
+  S.queue.forEach(function(p){ used[p.id] = 1; });
+
+  var id = pickCompatibleId(tail ? tail.heightM : 0, used);
+  if (id) return getPokemon(id).then(function(p){ S.queue.push(p); return p; });
+
+  /* sin tabla de alturas: se prueba al azar */
+  var tries = 0;
+  function attempt(){
+    tries++;
+    return getPokemon(randId()).then(function(p){
+      var ok = !used[p.id] && (!tail || compatible(tail, p));
+      if (ok || tries >= 20){ S.queue.push(p); return p; }
+      return attempt();
+    });
+  }
+  return attempt();
+}
+
+function refillQueue(){
+  if (S.queue.length >= QUEUE_MIN) return Promise.resolve();
+  return enqueueOne().then(refillQueue);
+}
+
+/* ============================================================
+   PINTADO
+   ============================================================ */
+function cap(s){ return s ? s.charAt(0).toUpperCase() + s.slice(1) : '---'; }
+function say(html, ready){
+  $('msg').innerHTML = html;
+  $('dialog').classList.toggle('ready', !!ready);
+}
+function barClass(pct){ return pct >= 60 ? 'hpbar' : (pct >= 30 ? 'hpbar warn' : 'hpbar bad'); }
+
+/* Retroceso de cámara: z = 1 mientras todo quepa. Se aplica a la ALTURA de los
+   dos sprites, no al contenedor, así que cada uno sigue centrado sobre su
+   plataforma. Al reducir los dos por igual, la proporción que juzga el jugador
+   no cambia. */
+var viewZoom = 1;
+
+function applyView(sPlayer){
+  var arena = $('arena');
+  var H = arena.clientHeight, W = arena.clientWidth;
+  /* El alto de la arena sale de su ancho vía aspect-ratio, y en el primer
+     pase de layout puede no estar resuelto todavía. Si se sigue adelante se
+     escriben alturas basura; mejor salir y dejar que el ResizeObserver
+     reintente en cuanto la arena tenga tamaño. */
+  if (!H || !W) return viewZoom;
+  var gp = groundPx();
+  var availH = Math.max(60, H - gp - 8);
+  var maxW   = Math.max(80, W * 0.44);
+  var ar = (S.gss && S.gss.sprite.h) ? (S.gss.sprite.w / S.gss.sprite.h) : 1;
+  var base = basePx();
+
+  /* el sprite del jugador tiene que caber a lo alto y a lo ancho */
+  var hPlayer = base * Math.max(sPlayer, 1);   // la referencia nunca baja de la base
+  var z = Math.min(1, availH / hPlayer, maxW / (base * sPlayer * ar || 1));
+
+  /* Y si la marca de la escala real está a la vista, tiene que caber también su
+     etiqueta: es el caso de escalar pequeño algo que en realidad era grande.
+     Sin esta condición la marca se sale por arriba y no se ve. */
+  if (S.revealed && S.ref){
+    var sReal = S.gss.heightM / S.ref.heightM;
+    z = Math.min(z, Math.max(40, H - gp - MARK_ROOM) / (base * sReal));
+  }
+
+  viewZoom = z;
+  $('spriteRef').style.height = Math.max(2, base * z) + 'px';
+  $('spriteGss').style.height = Math.max(2, base * sPlayer * z) + 'px';
+  $('camtag').classList.toggle('on', z < 0.995);
+  $('camtag').textContent = 'CAMERA x' + z.toFixed(2);
+  return z;
+}
+
+function drawScale(){
+  var s = tToScale(+$('slider').value);
+  $('scaleOut').textContent = s.toFixed(2) + 'x';
+  applyView(s);
+  if (S.revealed) placeMarker();
+  return s;
+}
+
+function placeMarker(){
+  var sReal = S.gss.heightM / S.ref.heightM;
+  var bottom = groundPx() + basePx() * sReal * viewZoom;
+  $('marker').style.bottom = bottom + 'px';
+  /* red de seguridad por si la etiqueta no cupiera igualmente */
+  $('marker').classList.toggle('below', bottom > $('arena').clientHeight - MARK_ROOM);
+}
+
+function drawQueue(){
+  var q = $('queue');
+  if (!S.queue.length){ q.innerHTML = '<div class="muted center">Loading...</div>'; return; }
+  q.innerHTML = S.queue.slice(0, QUEUE_MIN).map(function(p, i){
+    return '<div class="q-it' + (i === 0 ? ' next' : '') + '">' +
+      '<div class="q-thumb"><img class="px" src="' + p.sprite.src + '" alt=""></div>' +
+      '<div class="q-info">' +
+        '<span class="q-name">' + cap(p.name) + '</span>' +
+        (i === 0 ? '<span class="q-tag">NEXT</span>'
+                 : '<span class="q-pos">in ' + (i + 1) + ' rounds</span>') +
+      '</div></div>';
+  }).join('');
+}
+
+function drawRound(){
+  var r = S.ref, g = S.gss;
+
+  $('spriteRef').src = r.sprite.src;
+  $('spriteGss').src = g.sprite.src;   // las alturas las pone applyView()
+
+  $('nameRef').textContent = r.name;
+  $('nameGss').textContent = g.name;
+
+  /* la altura de la referencia es conocida: es el punto de apoyo del jugador */
+  $('hRef').textContent = r.heightM.toFixed(1) + 'm';
+  $('hGss').textContent = '???';
+
+  $('plateBarRef').style.width = '100%';
+  $('plateBarGss').style.width = '0%';
+  ['barPlateRefWrap','barPlateGssWrap'].forEach(function(id){ $(id).className = 'hpbar'; });
+
+  $('marker').classList.remove('on');
+  $('plateL').style.opacity = '1';
+  $('plateR').style.opacity = '1';
+  $('roundNo').textContent = S.round;
+  $('roundState').textContent = 'ADJUSTING';
+  $('roundState').className = 'chip';
+  $('resultBox').innerHTML =
+    '<div class="muted center" style="padding:6px 0">Confirm your scale to reveal the real heights.</div>';
+
+  $('slider').value = 500;
+  $('slider').disabled = false;
+  $('btnConfirm').disabled = false;
+  $('btnNext').disabled = true;
+  drawScale();
+
+  say('<b>' + cap(r.name) + '</b> is ' + r.heightM.toFixed(1) + ' m tall. Resize <b>' +
+      cap(g.name) + '</b> until its height looks right next to it, then confirm.');
+  drawQueue();
+}
+
+function drawStats(){
+  $('stRounds').textContent = S.rounds;
+  $('stHits').textContent   = S.hits;
+  $('stStreak').textContent = S.streak;
+  $('stPoints').textContent = S.points;
+  $('stAvg').textContent  = S.rounds ? (S.points / S.rounds).toFixed(1) + '%' : '--';
+  $('stBest').textContent = S.rounds ? S.best.toFixed(1) + '%' : '--';
+
+  var h = $('hist');
+  if (!S.history.length){
+    h.innerHTML = '<div class="muted center">No rounds yet.</div>';
+    return;
+  }
+  h.innerHTML = S.history.map(function(it){
+    return '<div class="it">' +
+      '<div class="t"><span>' + cap(it.gss) + ' / ' + cap(it.ref) + '</span>' +
+      '<span>' + it.score.toFixed(0) + '%</span></div>' +
+      '<div class="' + barClass(it.score) + '"><i style="width:' + it.score.toFixed(1) + '%"></i></div>' +
+    '</div>';
+  }).join('');
+}
+
+/* ============================================================
+   ARRANQUE Y CADENA
+   ============================================================ */
+function veil(msg){
+  $('veilMsg').textContent = msg;
+  $('veil').classList.add('on');
+}
+function unveil(){ $('veil').classList.remove('on'); }
+
+function fail(err){
+  veil('CONNECTION ERROR');
+  say('Could not reach PokéAPI (' + err.message + '). Check your connection and press NEXT POKÉMON to retry.');
+  S.busy = false;
+  $('btnNext').disabled = false;
+}
+
+function boot(){
+  S.busy = true;
+  S.revealed = false;
+  veil('LOADING...');
+  $('btnConfirm').disabled = true;
+  $('btnNext').disabled = true;
+
+  getPokemon(randId())
+    .then(function(ref){ S.ref = ref; return refillQueue(); })
+    .then(function(){ S.gss = S.queue.shift(); return refillQueue(); })
+    .then(function(){
+      drawRound();
+      unveil();
+      S.busy = false;
+    })
+    .catch(fail);
+}
+
+/* El Pokémon escalado se desliza a la izquierda y se normaliza al tamaño base
+   (ya es la referencia); el de la izquierda sale de campo y entra el siguiente
+   por la derecha. Las transiciones solo están activas mientras .anim está
+   puesta, para que el slider siga respondiendo al instante. */
+function animateConveyor(incoming){
+  return new Promise(function(resolve){
+    var stage = $('stage'), out = $('slotOut'), refS = $('slotRef'), gssS = $('slotGss');
+    var W = $('arena').clientWidth;
+    var shift = function(dx){ return 'translateX(-50%) translateX(' + dx.toFixed(1) + 'px)'; };
+
+    /* desplazamientos en px, medidos desde la posición base de cada hueco */
+    var toRight  =  W * (SLOT_R_N - SLOT_L_N);   // izquierda -> derecha
+    var fromOff  =  W * 0.31;                    // fuera de campo por la derecha
+    var toOffOut = -W * 0.43;                    // fuera de campo por la izquierda
+
+    /* Alturas en pantalla justo antes de mover nada: ya llevan el zoom de
+       cámara aplicado. El movimiento se hace con scale() sobre el sprite en vez
+       de con height, por lo mismo que el desplazamiento va con transform. */
+    var base = basePx();
+    var refH = $('spriteRef').style.height || (base + 'px');
+    var k = (parseFloat($('spriteGss').style.height) || base) / base;
+
+    /* fotograma 0, sin transiciones: se coloca todo en el estado de partida */
+    stage.classList.remove('anim');
+
+    $('spriteOut').src = S.ref.sprite.src;
+    $('spriteOut').style.height = refH;      // sale con el tamaño que tenía
+    $('spriteOut').style.transform = 'scale(1)';
+    out.style.transform = shift(0);
+    out.style.opacity = '1';
+
+    $('spriteRef').src = S.gss.sprite.src;      // el escalado pasa a ser referencia
+    $('spriteRef').style.height = base + 'px';
+    $('spriteRef').style.transform = 'scale(' + k.toFixed(4) + ')';
+    refS.style.transform = shift(toRight);
+
+    $('spriteGss').src = incoming.sprite.src;
+    $('spriteGss').style.height = base + 'px';
+    $('spriteGss').style.transform = 'scale(1)';
+    gssS.style.transform = shift(fromOff);
+    gssS.style.opacity = '0';
+
+    $('plateL').style.opacity = '0';
+    $('plateR').style.opacity = '0';
+    $('marker').classList.remove('on');
+
+    var done = false;
+
+    /* Doble requestAnimationFrame: leer offsetWidth no sirve aquí, porque
+       `transform` no afecta al layout y el navegador puede no recalcular el
+       estilo, con lo que los dos fotogramas colapsan en uno y no hay
+       transición. Con dos rAF el fotograma 0 está pintado con seguridad. */
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        if (done) return;      // el commit ya pasó: no reaplicar nada
+        stage.classList.add('anim');
+        out.style.transform = shift(toOffOut);
+        out.style.opacity = '0';
+        refS.style.transform = shift(0);
+        $('spriteRef').style.transform = 'scale(1)';
+        gssS.style.transform = shift(0);
+        gssS.style.opacity = '1';
+      });
+    });
+
+    /* El commit va por temporizador, no dentro del rAF: si la pestaña está en
+       segundo plano rAF no se dispara, y así la ronda avanza igualmente (sin
+       animación) en vez de quedarse colgada con S.busy = true. */
+    setTimeout(function(){
+      if (done) return;
+      done = true;
+      /* se limpian los estilos en línea: los valores finales ya coinciden con
+         los del CSS, así que no hay salto visible */
+      stage.classList.remove('anim');
+      [out, refS, gssS].forEach(function(el){
+        el.style.transform = ''; el.style.opacity = '';
+      });
+      ['spriteOut','spriteRef','spriteGss'].forEach(function(id){ $(id).style.transform = ''; });
+      out.style.opacity = '0';
+      resolve();
+    }, ANIM_MS + 140);
+  });
+}
+
+function advance(){
+  if (S.busy || !S.revealed) return;
+  S.busy = true;
+  $('btnNext').disabled = true;
+  $('btnConfirm').disabled = true;
+
+  /* si la cola se ha quedado vacía basta con esperar UNO, no con rellenarla
+     entera: el resto se precarga después en segundo plano */
+  var ready = S.queue.length ? Promise.resolve() : (veil('LOADING...'), enqueueOne());
+
+  ready.then(function(){
+    unveil();
+    var incoming = S.queue.shift();
+    return animateConveyor(incoming).then(function(){
+      S.ref = S.gss;
+      S.gss = incoming;
+      S.round++;
+      S.revealed = false;
+      drawRound();
+      S.busy = false;
+      refillQueue().then(drawQueue).catch(function(){});
+    });
+  }).catch(fail);
+}
+
+function confirmScale(){
+  if (S.revealed || S.busy || !S.ref) return;
+
+  var sPlayer = tToScale(+$('slider').value);
+  var sReal   = S.gss.heightM / S.ref.heightM;
+  var relErr  = Math.abs((sPlayer - sReal) / sReal);
+  var score   = Math.max(0, 100 - relErr * 100);
+  var hit     = score >= HIT_PCT;
+
+  S.revealed = true;
+  S.rounds++;
+  S.points += Math.round(score);
+  if (hit){ S.hits++; S.streak++; } else { S.streak = 0; }
+  if (score > S.best) S.best = score;
+  S.history.unshift({ ref:S.ref.name, gss:S.gss.name, score:score, hit:hit });
+  S.history = S.history.slice(0, 6);
+
+  /* alturas reveladas */
+  var hr = S.ref.heightM, hg = S.gss.heightM, hmax = Math.max(hr, hg);
+  $('hGss').textContent = hg.toFixed(1) + 'm';
+  $('plateBarRef').style.width = (hr / hmax * 100) + '%';
+  $('plateBarGss').style.width = (hg / hmax * 100) + '%';
+
+  /* línea de la escala correcta (la cámara ya la tiene en cuenta) */
+  applyView(sPlayer);
+  placeMarker();
+  $('marker').classList.add('on');
+  $('markerLab').textContent = 'REAL ' + sReal.toFixed(2) + 'x';
+
+  $('resultBox').innerHTML =
+    '<div class="center" style="padding:2px 0 8px">' +
+      '<span class="chip ' + (hit ? 'ok' : 'no') + '">' + (hit ? 'HIT' : 'MISS') + '</span></div>' +
+    '<div class="row"><span class="k">' + cap(S.ref.name) + '</span><span class="v">' + hr.toFixed(1) + ' m</span></div>' +
+    '<div class="row"><span class="k">' + cap(S.gss.name) + '</span><span class="v">' + hg.toFixed(1) + ' m</span></div>' +
+    '<div class="hr"></div>' +
+    '<div class="row"><span class="k">Real scale</span><span class="v">' + sReal.toFixed(2) + 'x</span></div>' +
+    '<div class="row"><span class="k">Your scale</span><span class="v">' + sPlayer.toFixed(2) + 'x</span></div>' +
+    '<div class="row"><span class="k">Error</span><span class="v">' + (relErr * 100).toFixed(1) + '%</span></div>' +
+    '<div class="hr"></div>' +
+    '<div class="row"><span class="k">Accuracy</span><span class="v ' + (hit ? 'big' : 'bad') + '">' + score.toFixed(1) + '%</span></div>' +
+    '<div class="' + barClass(score) + '" style="margin-top:10px"><i style="width:' + score.toFixed(1) + '%"></i></div>';
+
+  var verdict = hit
+    ? '<b class="ok">' + (score >= 90 ? 'PERFECT!' : 'NICE!') + '</b>'
+    : '<b class="no">MISS</b>';
+  say(verdict + ' ' + cap(S.gss.name) + ' is <b>' + hg.toFixed(1) + ' m</b> tall, so the real scale was <b>' +
+      sReal.toFixed(2) + 'x</b> and you set ' + sPlayer.toFixed(2) + 'x (' + score.toFixed(1) + '% accuracy). ' +
+      cap(S.gss.name) + ' now becomes the reference.', true);
+
+  $('roundState').textContent = hit ? 'HIT' : 'MISS';
+  $('roundState').className = 'chip ' + (hit ? 'ok' : 'no');
+  $('slider').disabled = true;
+  $('btnConfirm').disabled = true;
+  $('btnNext').disabled = false;
+  drawStats();
+}
+
+/* ============================================================
+   MARCAS DEL SLIDER
+   ============================================================ */
+(function buildTicks(){
+  var marks = [0.1, 0.25, 0.5, 1, 2, 5, 10];
+  $('ticks').innerHTML = marks.map(function(m){
+    var pos = scaleToT(m) / 10;   // 0..100 %
+    return '<div class="tick" style="left:' + pos.toFixed(2) + '%"><i></i>' + m + 'x</div>';
+  }).join('');
+})();
+
+/* ============================================================
+   EVENTOS
+   ============================================================ */
+$('slider').addEventListener('input', drawScale);
+$('btnConfirm').addEventListener('click', confirmScale);
+$('btnNext').addEventListener('click', advance);
+$('btnReset').addEventListener('click', function(){
+  S.round = 1; S.rounds = 0; S.hits = 0; S.streak = 0;
+  S.points = 0; S.best = 0; S.history = []; S.queue = [];
+  S.ref = null; S.gss = null;
+  drawStats(); boot();
+});
+
+function toggleGuides(){
+  var on = $('guides').classList.toggle('on');
+  $('guideSwitch').classList.toggle('on', on);
+  $('guideSwitch').setAttribute('aria-checked', on ? 'true' : 'false');
+  $('guideState').textContent = on ? 'ON' : 'OFF';
+  $('guideState').classList.toggle('on', on);
+}
+$('guideSwitch').addEventListener('click', toggleGuides);
+$('guideSwitch').addEventListener('keydown', function(e){
+  if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleGuides(); }
+});
+
+document.addEventListener('keydown', function(e){
+  if (e.target === $('slider')) return;
+  if (e.key === 'Enter'){
+    e.preventDefault();
+    if (!S.revealed) confirmScale();
+    else advance();
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
+    if (S.revealed || $('slider').disabled) return;
+    e.preventDefault();
+    var step = e.shiftKey ? 20 : 4;
+    var v = +$('slider').value + (e.key === 'ArrowRight' ? step : -step);
+    $('slider').value = Math.max(0, Math.min(1000, v));
+    drawScale();
+  }
+});
+
+/* Se observa la arena en vez de la ventana: así se recalcula también cuando el
+   layout se resuelve tarde o cuando la arena cambia de tamaño por algo que no
+   sea un resize de ventana. Los sprites van en un contenedor absoluto, así que
+   cambiarles el alto no puede redimensionar la arena: no hay bucle. */
+if (window.ResizeObserver){
+  new ResizeObserver(function(){ if (S.ref) drawScale(); }).observe($('arena'));
+} else {
+  window.addEventListener('resize', function(){ if (S.ref) drawScale(); });
+}
+
+/* arranque */
+drawStats();
+boot();
+</script>
+</body>
+</html>
